@@ -6,7 +6,13 @@ use log::{error, info, warn};
 use xelis_common::{
     async_handler,
     config::{PREFIX_ADDRESS, VERSION},
-    crypto::KeyPair,
+    crypto::{
+        bech32::{
+            SEPARATOR,
+            CHARSET,
+        },
+        KeyPair,
+    },
     prompt::{
         Color,
         LogLevel,
@@ -16,7 +22,7 @@ use xelis_common::{
     },
     serializer::Serializer,
     tokio::{self, sync::Mutex},
-    utils::format_hashrate
+    utils::format_hashrate,
 };
 use xelis_wallet::mnemonics;
 
@@ -59,6 +65,20 @@ async fn main() {
         }
     };
 
+    // Check if the prefix is empty
+    if config.prefix.is_empty() {
+        error!("Prefix can't be empty");
+        return;
+    }
+
+    // Check if the prefix contains invalid characters
+    for c in config.prefix.chars() {
+        if !CHARSET.chars().any(|v| v == c) {
+            error!("Invalid character in prefix: {}", c);
+            return;
+        }
+    }
+
     let detected_threads = match thread::available_parallelism() {
         Ok(value) => value.get(),
         Err(e) => {
@@ -80,7 +100,7 @@ async fn main() {
     info!("Total threads to use: {} (detected: {})", threads, detected_threads);
     info!("Searching for address with prefix: {}", config.prefix);
 
-    let prefix = format!("{}:{}", PREFIX_ADDRESS, config.prefix);
+    let prefix = format!("{}{}{}", PREFIX_ADDRESS, SEPARATOR, config.prefix);
     for i in 0..threads {
         let prefix = prefix.clone();
         // TODO: abort threads when one of them found the address
