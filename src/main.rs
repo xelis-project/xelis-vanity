@@ -1,5 +1,9 @@
-use std::{sync::atomic::{AtomicUsize, Ordering}, thread, time::{Duration, Instant}};
-
+use std::{
+    str::FromStr,
+    sync::atomic::{AtomicUsize, Ordering},
+    thread,
+    time::{Duration, Instant}
+};
 use clap::Parser;
 use lazy_static::lazy_static;
 use log::{error, info, warn};
@@ -26,13 +30,43 @@ use xelis_common::{
 };
 use xelis_wallet::mnemonics;
 
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+pub enum Placement {
+    Prefix,
+    Suffix,
+    Anywhere,
+}
+
+impl FromStr for Placement {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "prefix" => Ok(Placement::Prefix),
+            "suffix" => Ok(Placement::Suffix),
+            "anywhere" => Ok(Placement::Anywhere),
+            _ => Err("Unknown placement")
+        }
+    }
+}
+
+impl ToString for Placement {
+    fn to_string(&self) -> String {
+        match self {
+            Placement::Prefix => "prefix".to_string(),
+            Placement::Suffix => "suffix".to_string(),
+            Placement::Anywhere => "anywhere".to_string(),
+        }
+    }
+}
+
 #[derive(Parser)]
 #[clap(version = VERSION, about = "XELIS is an innovative cryptocurrency built from scratch with BlockDAG, Homomorphic Encryption, Zero-Knowledge Proofs, and Smart Contracts.")]
 #[command(styles = xelis_common::get_cli_styles())]
 pub struct Config {
-    /// The prefix for the address to search for
+    /// The content for the address to search for
     #[clap(short, long)]
-    pub prefix: String,
+    pub content: String,
     /// Language index for the seed
     #[clap(short, long, default_value_t = 0)]
     pub language: usize,
@@ -40,6 +74,9 @@ pub struct Config {
     /// By default, this will try to detect the number of threads available on your CPU.
     #[clap(short, long)]
     pub num_threads: Option<usize>,
+    /// Placement of the prefix in the address
+    #[clap(short, long, default_value_t = Placement::Prefix)]
+    pub placement: Placement,
     /// Disable the usage of colors in log
     #[clap(long)]
     disable_log_color: bool,
@@ -65,14 +102,14 @@ async fn main() {
         }
     };
 
-    // Check if the prefix is empty
-    if config.prefix.is_empty() {
+    // Check if the content is empty
+    if config.content.is_empty() {
         error!("Prefix can't be empty");
         return;
     }
 
-    // Check if the prefix contains invalid characters
-    for c in config.prefix.chars() {
+    // Check if the content contains invalid characters
+    for c in config.content.chars() {
         if !CHARSET.chars().any(|v| v == c) {
             error!("Invalid character in prefix: {}", c);
             return;
@@ -98,13 +135,17 @@ async fn main() {
     }
 
     info!("Total threads to use: {} (detected: {})", threads, detected_threads);
-    info!("Searching for address with prefix: {}", config.prefix);
+    info!("Searching for address with content: {} at placement '{}'", config.content, config.placement.to_string());
 
-    let prefix = format!("{}{}{}", PREFIX_ADDRESS, SEPARATOR, config.prefix);
+    let prefix = match config.placement {
+        Placement::Prefix => format!("{}{}{}", PREFIX_ADDRESS, SEPARATOR, config.content),
+        _ => config.content.clone(),
+    };
+
     for i in 0..threads {
         let prefix = prefix.clone();
         // TODO: abort threads when one of them found the address
-        thread::spawn(move || search_for_prefix(prefix, config.language, i));
+        thread::spawn(move || search_for(prefix, config.placement, config.language, i));
     }
 
     if let Err(e) = run_prompt(prompt).await {
@@ -112,18 +153,23 @@ async fn main() {
     }
 }
 
-fn search_for_prefix(prefix: String, language: usize, thread: usize) {
+fn search_for(content: String, placement: Placement, language: usize, thread: usize) {
     loop {
         let keypair = KeyPair::new();
         let address = keypair.get_public_key()
             .to_address(true)
             .to_string();
 
-        if address.starts_with(&prefix) {
+        let valid = match placement {
+            Placement::Prefix => address.starts_with(&content),
+            Placement::Suffix => address.ends_with(&content),
+            Placement::Anywhere => address.contains(&content),
+        };
+
+        if valid {
             info!("Thread #{} found: {}", thread, address);
             info!("Private key: {}", keypair.get_private_key().to_hex());
             info!("Seed: {}", mnemonics::key_to_words(keypair.get_private_key(), language).unwrap().join(" "));
-            break;
         }
 
         RATE_COUNTER.fetch_add(1, Ordering::Relaxed);
