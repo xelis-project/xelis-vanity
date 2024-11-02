@@ -1,0 +1,11 @@
+[package]
+name = "xelis-vanity"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+xelis_common = { git = "https://github.com/xelis-project/xelis-blockchain", branch = "network-upgrade", package = "xelis_common" }
+xelis_wallet = { git = "https://github.com/xelis-project/xelis-blockchain", branch = "network-upgrade", package = "xelis_wallet" }
+log = "0.4.22"
+clap = { version = "4.5.2", features = ["derive"] }
+lazy_static = "1.5.0"
