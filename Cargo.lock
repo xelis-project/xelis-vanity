@@ -2875,7 +2875,7 @@ dependencies = [
 [[package]]
 name = "xelis_common"
 version = "1.15.0"
-source = "git+https://github.com/xelis-project/xelis-blockchain?branch=network-upgrade#d304b5db571d99c88dcc5f5d3f050f8c3747c82c"
+source = "git+https://github.com/xelis-project/xelis-blockchain?branch=network-upgrade#7ade374047495d018d95cd9e96dcd4a48f52ad09"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -2918,7 +2918,7 @@ dependencies = [
 [[package]]
 name = "xelis_wallet"
 version = "1.15.0"
-source = "git+https://github.com/xelis-project/xelis-blockchain?branch=network-upgrade#d304b5db571d99c88dcc5f5d3f050f8c3747c82c"
+source = "git+https://github.com/xelis-project/xelis-blockchain?branch=network-upgrade#7ade374047495d018d95cd9e96dcd4a48f52ad09"
 dependencies = [
  "actix",
  "actix-web",
